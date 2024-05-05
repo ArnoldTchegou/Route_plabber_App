@@ -11,12 +11,14 @@ public class Network {
     private List<Link> links;
     //Liste d'adjacence
     private Map<Stop, List<Link>> adjacencyList;
+    private List<Link> originalLinks;
 
 
     public Network() {
         this.All_Lines = new ArrayList<>();
         this.stops = new ArrayList<>();
         this.links = new ArrayList<>();
+        this.originalLinks = new ArrayList<>();
         this.adjacencyList = new HashMap<>();
     }
 
@@ -173,5 +175,23 @@ public class Network {
         // Si on n'a pas trouvé la destination, on retourne une liste vide
         return new ArrayList<>();
     }
-    
+    public void filterLinksByLine(String lineName) {
+        List<Link> filteredLinks = new ArrayList<>();
+        for (Link link : links) {
+            if (link.getLineName().equals(lineName)) {
+                filteredLinks.add(link);
+            }
+        }
+        // Remplacer la liste de liens actuelle par la liste filtrée
+        this.links = filteredLinks;
+    }
+    public void saveOriginalLinks() {
+        this.originalLinks = new ArrayList<>(this.links);
+    }
+
+    public void restoreOriginalLinks() {
+        if(!this.originalLinks.isEmpty()){
+            this.links = new ArrayList<>(this.originalLinks);
+        }
+    }
 }

@@ -12,11 +12,13 @@ import fr.u_paris.gla.project.Lecture_Reseau.Network;
 import fr.u_paris.gla.project.Lecture_Reseau.Stop;
 import fr.u_paris.gla.project.User_interface.UI_Terminale;
 import fr.u_paris.gla.project.User_interface.UI_graphique;
+import fr.u_paris.gla.project.User_interface.MetroMapUI;
 
 public class Controller {
     private Network controller_network;
     private UI_Terminale controller_terminal;
     private UI_graphique controller_GUI;
+    private MetroMapUI controller_Map;
 
     public Network getController_network() {
         return controller_network;
@@ -42,9 +44,12 @@ public class Controller {
     public void setController_GUI(UI_graphique controller_GUI) {
         this.controller_GUI = controller_GUI;
     }
+    public MetroMapUI getController_Map() {
+        return controller_Map;
+    }
 
-    public Controller(Network n){
-        this.controller_network = n;
+    public void setController_Map(MetroMapUI controller_Map) {
+        this.controller_Map= controller_Map;
     }
 
     public Controller(Network n, UI_Terminale t){
@@ -55,6 +60,10 @@ public class Controller {
     public Controller(Network n, UI_graphique g){
         this.controller_network = n;
         this.controller_GUI = g;
+    }
+    public Controller(Network n){
+        this.controller_network = n;
+        this.controller_Map = new MetroMapUI(n);
     }
 
     //Convertit le temps en secondes
@@ -151,6 +160,10 @@ public class Controller {
     public void LaunchApp_Terminale(){
         CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
         this.controller_terminal.showTerminale(this.controller_network);
+    }
+    public void LaunchApp_Map(){
+        CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
+        this.controller_Map.showMap(this.controller_network);
     }
 
     public void App_Info(){

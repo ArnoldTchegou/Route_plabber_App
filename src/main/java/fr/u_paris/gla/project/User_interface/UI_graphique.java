@@ -26,6 +26,8 @@ public class UI_graphique {
         frame.add(mainPanel, BorderLayout.CENTER);
         refreshButton = new JButton("Refresh");
 
+
+
         createResultArea();
 
         // Load the image and create a JLabel with the ImageIcon
@@ -48,7 +50,7 @@ public class UI_graphique {
 
         JLabel departureLabel = new JLabel("Departure:");
         JLabel arrivalLabel = new JLabel("Arrival:");
-
+        
         // ComboBox pour le départ
         departureField = new JComboBox<>(new DefaultComboBoxModel<>(network.getAllStationNames().toArray(new String[0])));
         departureField.setEditable(true);
@@ -70,6 +72,7 @@ public class UI_graphique {
         inputPanel.add(arrivalField, gbc);
         inputPanel.add(findPathButton, gbc);
         inputPanel.add(refreshButton, gbc);
+        
 
         findPathButton.addActionListener(new ActionListener() {
             @Override

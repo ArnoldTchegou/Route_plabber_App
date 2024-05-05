@@ -6,6 +6,7 @@ import fr.u_paris.gla.project.App_Ccontroller.Controller;
 import fr.u_paris.gla.project.Lecture_Reseau.Network;
 import fr.u_paris.gla.project.User_interface.UI_Terminale;
 import fr.u_paris.gla.project.User_interface.UI_graphique;
+import fr.u_paris.gla.project.User_interface.MetroMapUI;
 import fr.u_paris.gla.project.idfm.IDFMNetworkExtractor;
 
 /** Simple application model.
@@ -34,6 +35,10 @@ public class App {
                 if ("--term".equals(string)) { //$NON-NLS-1$
                     Controller c = new Controller(new Network(), new UI_Terminale());
                     c.LaunchApp_Terminale();
+                }
+                 if ("--map".equals(string)) { //$NON-NLS-1$
+                    Controller c = new Controller(new Network());
+                    c.LaunchApp_Map();
                 }
             }
         }
