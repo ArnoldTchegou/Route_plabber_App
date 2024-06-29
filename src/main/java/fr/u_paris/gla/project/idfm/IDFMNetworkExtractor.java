@@ -43,8 +43,8 @@ public class IDFMNetworkExtractor {
 
     private static final int IDFM_STOPS_RID_INDEX  = 0;
     private static final int IDFM_STOPS_NAME_INDEX = 3;
-    //private static final int IDFM_STOPS_LON_INDEX  = 5;
-    private static final int IDFM_STOPS_LAT_INDEX  = 7;
+    private static final int IDFM_STOPS_LON_INDEX  = 4;
+    private static final int IDFM_STOPS_LAT_INDEX  = 5;
 
     // Magically chosen values
     /** A number of stops on each line */
@@ -83,6 +83,7 @@ public class IDFMNetworkExtractor {
         cleanTraces(traces);
 
         CSVStreamProvider provider = new CSVStreamProvider(traces.values().iterator());
+
         try {
             CSVTools.writeCSVToFile(args[0], Stream.iterate(provider.next(),
                     t -> provider.hasNext(), t -> provider.next()));
@@ -128,23 +129,14 @@ public class IDFMNetworkExtractor {
     }
 
     private static void addStop(String[] line, Map<String, TraceEntry> traces,
-        List<StopEntry> stops) {
-                String lonStr_line = line[IDFM_STOPS_LAT_INDEX];
-                String[] parts = lonStr_line.split(",\\s*");
-                try {
-                    double latitude = Double.parseDouble(parts[0]);
-                    double longitude = Double.parseDouble(parts[1]);
-                    StopEntry entry = new StopEntry(line[IDFM_STOPS_NAME_INDEX],longitude,latitude);
-                    String rid = line[IDFM_STOPS_RID_INDEX];
-                    traces.computeIfPresent(rid,
-                            (String k, TraceEntry trace) -> addCandidate(trace, entry));
-                    stops.add(entry);
-                    // Process latitude and longitude values
-                } catch (NumberFormatException e) {
-                    // Handle the case where the string is not a valid number
-                    // This might involve logging an error, skipping the record, or handling it in some other way
-                    System.err.println("Invalid latitude: " + parts[0] + " and longitude value: " + parts[1]);
-                }
+            List<StopEntry> stops) {
+        StopEntry entry = new StopEntry(line[IDFM_STOPS_NAME_INDEX],
+                Double.parseDouble(line[IDFM_STOPS_LON_INDEX]),
+                Double.parseDouble(line[IDFM_STOPS_LAT_INDEX]));
+        String rid = line[IDFM_STOPS_RID_INDEX];
+        traces.computeIfPresent(rid,
+                (String k, TraceEntry trace) -> addCandidate(trace, entry));
+        stops.add(entry);
     }
 
     private static void addLine(String[] line, Map<String, TraceEntry> traces) {

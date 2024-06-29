@@ -12,6 +12,8 @@ Ce projet utilise [maven](https://maven.apache.org/) de Apache pour la gestion d
 Afin de compiler et lancer les tests, éxecutez simplement
 ```
 mvn verify
+puis
+mvn compile assembly:single
 ```
 
 Dans sa version initiale, le programme fournit est un simple code qui se lance en terminal ou en application graphique.

@@ -35,7 +35,8 @@ public final class CSVTools {
     public static void readCSVFromURL(String url, Consumer<String[]> contentLineConsumer)
             throws IOException {
         ICSVParser parser = new CSVParserBuilder().withSeparator(';').build();
-        try (InputStream is = new URL(url).openStream();
+        try (@SuppressWarnings("deprecation")
+        InputStream is = new URL(url).openStream();
                 Reader reader = new BufferedReader(
                         new InputStreamReader(is, StandardCharsets.UTF_8))) {
             CSVReaderBuilder csvBuilder = new CSVReaderBuilder(reader)
