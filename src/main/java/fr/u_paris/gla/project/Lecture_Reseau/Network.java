@@ -1,6 +1,11 @@
 package fr.u_paris.gla.project.Lecture_Reseau;
 
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.awt.geom.Point2D;
+import fr.u_paris.gla.project.utils.GPS;
+
 
 public class Network {
     //Liste contenant toutes les lignes du réseau
@@ -28,6 +33,10 @@ public class Network {
 
     public List<Link> getLinks() {
         return links;
+    }
+
+    public void setLinks(List<Link> link) {
+        this.links = link;
     }
 
     public List<Stop> getStops() {
@@ -80,101 +89,63 @@ public class Network {
         return stationNames;
     }
 
-    public List<Link> dijkstra_dist(Stop source, Stop destination) {
-        Map<Stop, Double> distances = new HashMap<>();
-        Map<Stop, Boolean> visited = new HashMap<>();
+    public List<Link> dijkstra_time(Stop source, Stop destination, LocalTime currentTime) {
+        Map<Stop, LocalTime> arrivalTimes = new HashMap<>();
         Map<Stop, Link> previousLink = new HashMap<>();
-        PriorityQueue<Stop> pq = new PriorityQueue<>(Comparator.comparingDouble(distances::get));
+        PriorityQueue<Stop> pq = new PriorityQueue<>(Comparator.comparingDouble(s -> arrivalTimes.get(s).toSecondOfDay()));
+        Map<Stop, Boolean> visited = new HashMap<>();
     
-        // Initialiser les distances et les visites
-        for (Stop stop : stops) {
-            distances.put(stop, Double.MAX_VALUE);
+        //Initialiser les temps d'arrivée et les visites
+        for (Stop stop : getStops()) {
+            arrivalTimes.put(stop, LocalTime.MAX);
             visited.put(stop, false);
         }
-        if(source != null){
-            distances.put(source, 0.0);
-            pq.add(source);
-        }
-    
-        while (!pq.isEmpty()) {
-            Stop current = pq.poll();
-            visited.put(current, true);
-    
-            // Si on atteint la destination, on retourne le chemin
-            if (current.equals(destination)) {
-                List<Link> path = new ArrayList<>();
-                Stop step = destination;
-                while (previousLink.containsKey(step)) {
-                    Link link = previousLink.get(step);
-                    path.add(link);
-                    step = link.getSource();
-                }
-                Collections.reverse(path);
-                return path;
-            }
-    
-            for (Link link : adjacencyList.get(current)) {
-                Stop neighbor = link.getDestination();
-                if (!visited.get(neighbor)) {
-                    double newDistance = distances.get(current) + link.getDistance();
-                    if (newDistance < distances.get(neighbor)) {
-                        distances.put(neighbor, newDistance);
-                        pq.add(neighbor);
-                        previousLink.put(neighbor, link);
-                    }
-                }
-            }
-        }
-        // Si on n'a pas trouvé la destination, on retourne une liste vide
-        return new ArrayList<>();
-    }
-
-    public List<Link> dijkstra_time(Stop source, Stop destination, double startTime) {
-        Map<Stop, Double> arrivalTimes = new HashMap<>();
-        Map<Stop, Boolean> visited = new HashMap<>();
-        Map<Stop, Link> previousLink = new HashMap<>();
-        PriorityQueue<Stop> pq = new PriorityQueue<>(Comparator.comparingDouble(arrivalTimes::get));
-    
-        // Initialiser les temps d'arrivée et les visites
-        for (Stop stop : stops) {
-            arrivalTimes.put(stop, Double.MAX_VALUE);
-            visited.put(stop, false);
-        }
-        arrivalTimes.put(source, startTime);
+        arrivalTimes.put(source, currentTime);
         pq.add(source);
     
         while (!pq.isEmpty()) {
             Stop current = pq.poll();
             visited.put(current, true);
     
-            // Si on atteint la destination, on retourne le chemin
             if (current.equals(destination)) {
                 List<Link> path = new ArrayList<>();
                 Stop step = destination;
                 while (previousLink.containsKey(step)) {
                     Link link = previousLink.get(step);
-                    path.add(link);
+                    //Ajouter en 1er pour pas inverser le chemin
+                    path.add(0, link);
                     step = link.getSource();
                 }
-                Collections.reverse(path);
                 return path;
             }
     
-            for (Link link : adjacencyList.get(current)) {
+            for (Link link : getAdjacencyList().get(current)) {
                 Stop neighbor = link.getDestination();
                 if (!visited.get(neighbor)) {
-                    double arrivalTime = arrivalTimes.get(current) + link.getTime();
-                    if (arrivalTime < arrivalTimes.get(neighbor)) {
-                        arrivalTimes.put(neighbor, arrivalTime);
-                        pq.add(neighbor);
-                        previousLink.put(neighbor, link);
+                    LocalTime earliestDeparture = findEarliestDeparture(link.getHPassage(), arrivalTimes.get(current));
+                    if (!earliestDeparture.equals(LocalTime.MAX)) {
+                        long waitTime = ChronoUnit.SECONDS.between(arrivalTimes.get(current), earliestDeparture);
+                        LocalTime arrivalTime = earliestDeparture.plusSeconds(link.getTime() + waitTime);
+                        if (arrivalTime.isBefore(arrivalTimes.get(neighbor))) {
+                            arrivalTimes.put(neighbor, arrivalTime);
+                            pq.add(neighbor);
+                            previousLink.put(neighbor, link);
+                        }
                     }
                 }
             }
         }
-        // Si on n'a pas trouvé la destination, on retourne une liste vide
-        return new ArrayList<>();
+        //Si on n'a pas trouvé la destination, on retourne une liste vide
+        return new ArrayList<>();  
     }
+    
+    private LocalTime findEarliestDeparture(List<LocalTime> departures, LocalTime currentTime) {
+        return departures.stream()
+                         .filter(time -> time.isAfter(currentTime))
+                         .min(LocalTime::compareTo)
+                         .orElse(LocalTime.MIN);
+    }
+
     public void filterLinksByLine(String lineName) {
         List<Link> filteredLinks = new ArrayList<>();
         for (Link link : links) {
@@ -194,4 +165,69 @@ public class Network {
             this.links = new ArrayList<>(this.originalLinks);
         }
     }
+     // Méthode pour trouver l'arrêt le plus proche des coordonnées géographiques spécifiées
+     public Stop findNearestStop(Point2D.Double coordinates) {
+        Stop nearestStop = null;
+        double shortestDistance = Double.MAX_VALUE;
+
+        // Parcourir tous les arrêts pour trouver le plus proche
+        for (Stop stop : stops) {
+            double distance = coordinates.distance(new Point2D.Double(stop.getLatitude(), stop.getLongitude()));
+            if (distance < shortestDistance) {
+                shortestDistance = distance;
+                nearestStop = stop;
+            }
+        }
+
+        return nearestStop;
+    }
+
+    // Méthode pour trouver le chemin optimal jusqu'à une destination à partir de coordonnées géographiques
+    public List<Link> findPathFromCoordinates(Point2D.Double sourceCoordinates, Point2D.Double destinationCoordinates, LocalTime currentTime) {
+        Stop sourceStop = findNearestStop(sourceCoordinates);
+        Stop destinationStop = findNearestStop(destinationCoordinates);
+
+        if (sourceStop == null || destinationStop == null) {
+            System.out.println("Impossible de trouver des arrêts pour les coordonnées spécifiées.");
+            return new ArrayList<>(); // Retourner une liste vide si les arrêts ne sont pas trouvés
+        }
+
+        // Utiliser l'algorithme Dijkstra pour trouver le chemin optimal entre les arrêts
+        return dijkstra_time(sourceStop, destinationStop, currentTime);
+    }
+
+    public void Affiche(Point2D.Double sourceCoordinates, Point2D.Double destinationCoordinates, LocalTime currentTime){
+    
+        LocalTime departureTime1 = LocalTime.now();
+    
+        // Trouver le chemin optimal entre les deux points dans Paris
+        List<Link> shortestPath1 = findPathFromCoordinates(sourceCoordinates, destinationCoordinates, departureTime1);
+        WalkPath.evaluateWalkingOptions(shortestPath1, departureTime1, false);
+        // Afficher le chemin trouvé
+        System.out.println("\n\nLe chemin le plus rapide pour aller des coordonnées " + sourceCoordinates + " aux coordonnées " + destinationCoordinates + " est le suivant:");
+        double totalTime2 = 0;
+        for (Link link : shortestPath1) {
+            System.out.println("\t[ " + link.getDestination().getStopName() + ", " + link.getTime() + "s, " + link.getDistance() + "m, opéré par la ligne: " + link.getLineName() + " ]");
+            totalTime2 += link.getTime();
+        }
+            
+        // Calculer le temps de marche jusqu'à la station de départ
+        Stop sourceStop = findNearestStop(sourceCoordinates);
+        double sourceDistance = GPS.distance(sourceCoordinates.getX(), sourceCoordinates.getY(), sourceStop.getLatitude(), sourceStop.getLongitude());
+        int walkingTimeSource = (int) Math.ceil(sourceDistance / 5 * 60 * 60); // en minutes
+    
+        // Calculer le temps de marche jusqu'à la station d'arrivée
+        Stop destinationStop =findNearestStop(destinationCoordinates);
+        double destinationDistance = GPS.distance(destinationCoordinates.getX(), destinationCoordinates.getY(), destinationStop.getLatitude(), destinationStop.getLongitude());
+        int walkingTimeDestination = (int) Math.ceil(destinationDistance / 5 * 60 * 60); // en minutes
+    
+        // Calculer le temps total de marche
+        int totalWalkingTime = (walkingTimeSource + walkingTimeDestination);
+    
+        // Transformation du temps de trajet en long
+        long tot1 = (long) totalTime2;
+        System.out.println("\nMarche de "+ sourceCoordinates + " en " + walkingTimeSource + " sec Jusqu'a " +sourceStop.getStopName() +"\n####Heure d'arrivée prévue a "+destinationStop.getStopName() +": " + departureTime1.plusSeconds(tot1 + walkingTimeSource) + "###\n\n Il faut marcher "+ walkingTimeDestination + " sec jusqu'a "+ destinationCoordinates+" donc arrivé finale prévu à "+ departureTime1.plusSeconds(tot1+totalWalkingTime));
+    }
+    
+    
 }

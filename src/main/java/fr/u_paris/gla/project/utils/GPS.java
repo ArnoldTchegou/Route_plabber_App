@@ -9,7 +9,7 @@ package fr.u_paris.gla.project.utils;
 public final class GPS {
 
     /** The (approximated) earth radius in km. */
-    private static final double EARTH_RADIUS = 6_371.0;
+    private static final double EARTH_RADIUS = 6_370.0;
 
     /** Hidden constructor for tool class */
     private GPS() {

@@ -1,11 +1,16 @@
 package fr.u_paris.gla.project.Lecture_Reseau;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+
 public class Link {
     private String lineName;
     private int time;
     private double distance;
     private Stop source;
     private Stop destination;
+    private List<LocalTime> H_passage;
 
 
     public Link() {
@@ -17,6 +22,7 @@ public class Link {
         this.distance = distance;
         this.source = source;
         this.destination = destination;
+        this.H_passage = new ArrayList<>();
     }
 
     public String getLineName() {
@@ -67,7 +73,11 @@ public class Link {
         this.destination = destination;
     }
 
-   
+    public List<LocalTime> getHPassage() {
+        return this.H_passage;
+    }
+
+
     @Override
     public String toString() {
         return "\n\nLink: {\n" +

@@ -4,27 +4,36 @@ import javax.swing.*;
 import fr.u_paris.gla.project.Lecture_Reseau.Link;
 import fr.u_paris.gla.project.Lecture_Reseau.Network;
 import fr.u_paris.gla.project.Lecture_Reseau.Stop;
+import fr.u_paris.gla.project.Lecture_Reseau.WalkPath;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.util.HashMap;
+import java.time.LocalTime;
 import java.util.Map;
+import java.util.List;
 
 public class MetroMapUI extends JFrame {
-    private Network network = new Network();
-    private String currentStopName = "";
+    private JComboBox<String> departureField;
+    private JComboBox<String> arrivalField;
+    private JButton refreshButton;
     private double zoomFactor = 4.9;
-    private int offsetX = 1;
-    private int offsetY = 2;
+    MetroMapPanel mapPanel;
+    private JTextArea textArea;
+    private JTextArea pathResult;
+    protected boolean walk;
 
     public MetroMapUI(Network network) {
         super("Metro Map UI");
+        refreshButton = new JButton("Refresh");
+        setLayout(new GridLayout(1, 2));
+        
+        JPanel graphe = new JPanel(new BorderLayout());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(800, 600);
 
-        MetroMapPanel mapPanel = new MetroMapPanel();
+        mapPanel = new MetroMapPanel(network, zoomFactor);
         JScrollPane scrollPane = new JScrollPane(mapPanel);
-        add(scrollPane);
+        graphe.add(scrollPane, BorderLayout.CENTER);
 
         JPanel buttonPanel = new JPanel();
         JButton zoomInButton = new JButton("Zoom In");
@@ -33,7 +42,7 @@ public class MetroMapUI extends JFrame {
         buttonPanel.add(zoomInButton);
         buttonPanel.add(zoomOutButton);
         buttonPanel.add(showall);
-        add(buttonPanel, BorderLayout.SOUTH);
+        graphe.add(buttonPanel, BorderLayout.SOUTH);
 
         zoomInButton.addActionListener(e -> {
             zoomIn();
@@ -49,210 +58,55 @@ public class MetroMapUI extends JFrame {
             repaint();
         });
 
-       // Légende des couleurs de lignes
-JPanel legendPanel = new JPanel();
-legendPanel.setLayout(new GridLayout(0, 2));
-Map<String, Color> lineColorMap = createLineColorMap();
+        // Légende des couleurs de lignes
+        JPanel legendPanel = new JPanel(new GridLayout(0, 2));
+        Map<String, Color> lineColorMap = Factory.createLineColorMap();
 
-// Boucle à travers les entrées de lineColorMap
-for (Map.Entry<String, Color> entry : lineColorMap.entrySet()) {
-    // Récupérer le nom de la ligne et sa couleur
-    String lineName = entry.getKey();
-    Color color = entry.getValue();
+        // Boucle à travers les entrées de lineColorMap
+        for (Map.Entry<String, Color> entry : lineColorMap.entrySet()) {
+            // Récupérer le nom de la ligne et sa couleur
+            String lineName = entry.getKey();
+            Color color = entry.getValue();
 
-    // Créer un label avec le nom de la ligne
-    JLabel label = new JLabel(lineName);
+            // Créer un label avec le nom de la ligne
+            JLabel label = new JLabel(lineName);
 
-    // Créer un panel de couleur avec la couleur de la ligne
-    JPanel colorPanel = new JPanel();
-    colorPanel.setBackground(color);
+            // Créer un panel de couleur avec la couleur de la ligne
+            JPanel colorPanel = new JPanel();
+            colorPanel.setBackground(color);
 
-    // Ajouter un écouteur de clic au label
-    label.addMouseListener(new MouseAdapter() {
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            // Récupérer le nom de la ligne associé à ce label
-            String clickedLineName = label.getText();
-            // Filtrer les données du graphique pour n'afficher que les données de cette ligne
-            network.restoreOriginalLinks();
-            network.saveOriginalLinks();
-            filterGraphData(clickedLineName, network);
+            // Ajouter un écouteur de clic au label
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    // Récupérer le nom de la ligne associé à ce label
+                    String clickedLineName = label.getText();
+                    // Filtrer les données du graphique pour n'afficher que les données de cette ligne
+                    network.restoreOriginalLinks();
+                    network.saveOriginalLinks();
+                    filterGraphData(clickedLineName, network);
+                }
+            });
+
+            // Ajouter le label et le panel de couleur au panneau de légende
+            legendPanel.add(label);
+            legendPanel.add(colorPanel);
         }
-    });
 
-    // Ajouter le label et le panel de couleur au panneau de légende
-    legendPanel.add(label);
-    legendPanel.add(colorPanel);
-}
+        // Ajouter le panneau de légende à votre interface
+        graphe.add(legendPanel, BorderLayout.EAST);
 
-    // Ajouter le panneau de légende à votre interface
-
-    add(legendPanel, BorderLayout.EAST);
-
+        add(graphe);
         setVisible(true);
     }
-
-    class MetroMapPanel extends JPanel implements MouseListener, MouseMotionListener {
-        private final int threshold = 10;
-        private int prevMouseX;
-        private int prevMouseY;
-
-        public MetroMapPanel() {
-            addMouseListener(this);
-            addMouseMotionListener(this);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            drawMetroStopsAndLines(g, offsetX, offsetY);
-        }
-
-        private void drawMetroStopsAndLines(Graphics g, int offsetX, int offsetY) {
-            final int panelWidth = getWidth();
-            final int panelHeight = getHeight();
-            final int centerX = panelWidth / 2 + offsetX;
-            final int centerY = panelHeight / 2 + offsetY;
-
-            Map<String, Color> lineColorMap = createLineColorMap();
-
-            for (Stop stop : network.getStops()) {
-                int x = centerX + (int) ((stop.getLongitude() - 2.2976831860125837) * panelWidth * zoomFactor);
-                int y = centerY + (int) ((stop.getLatitude() - 48.88484432273985) * panelHeight * zoomFactor);
-                g.setColor(Color.GREEN);
-                g.fillOval(x - 5, y - 5, 10, 10);
-
-                Point mousePosition = getMousePosition();
-                if (mousePosition != null) {
-                    int mouseX = mousePosition.x;
-                    int mouseY = mousePosition.y;
-                    double distance = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
-
-                    if (distance < threshold) {
-                        currentStopName = stop.getStopName();
-                    }
-                }
-
-                if (currentStopName.equals(stop.getStopName())) {
-                    g.setColor(Color.BLACK);
-                    g.drawString(currentStopName, x + 10, y + 10);
-                }
-            }
-
-            for (Link link : network.getLinks()) {
-                String lineName = link.getLineName();
-                Color lineColor = lineColorMap.getOrDefault(lineName, Color.BLACK);
-
-                g.setColor(lineColor);
-
-                int x1 = centerX + (int) ((link.getSource().getLongitude() - 2.2976831860125837) * panelWidth * zoomFactor);
-                int y1 = centerY + (int) ((link.getSource().getLatitude() - 48.88484432273985) * panelHeight * zoomFactor);
-                int x2 = centerX + (int) ((link.getDestination().getLongitude() - 2.2976831860125837) * panelWidth * zoomFactor);
-                int y2 = centerY + (int) ((link.getDestination().getLatitude() - 48.88484432273985) * panelHeight * zoomFactor);
-                g.drawLine(x1, y1, x2, y2);
-            }
-        }
-
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            for (Stop stop : network.getStops()) {
-                int x = calculateXCoordinate(stop);
-                int y = calculateYCoordinate(stop);
-
-                if (isClickOnStop(e.getX(), e.getY(), x, y)) {
-                    showStationInfo(stop);
-                    return;
-                }
-            }
-        }
-
-        private int calculateXCoordinate(Stop stop) {
-            final int centerX = getWidth() / 2 + offsetX;
-            return centerX + (int) ((stop.getLongitude() - 2.2976831860125837) * getWidth() * zoomFactor);
-        }
-
-        private int calculateYCoordinate(Stop stop) {
-            final int centerY = getHeight() / 2 + offsetY;
-            return centerY + (int) ((stop.getLatitude() - 48.88484432273985) * getHeight() * zoomFactor);
-        }
-
-        private boolean isClickOnStop(int mouseX, int mouseY, int stopX, int stopY) {
-            final int clickThreshold = 20;
-            double distance = Math.sqrt(Math.pow(mouseX - stopX, 2) + Math.pow(mouseY - stopY, 2));
-            return distance < clickThreshold;
-        }
-
-        private void showStationInfo(Stop stop) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Station: " + stop.getStopName() + "\nLatitude: " + stop.getLatitude() + "\nLongitude: " + stop.getLongitude(),
-                    "Station Information",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
-            // Réinitialiser le nom de la station sélectionnée
-            currentStopName = "";
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(800, 600);
-        }
-
-        @Override
-        public void mouseEntered(MouseEvent e) {}
-        @Override
-        public void mouseExited(MouseEvent e) {}
-        @Override
-        public void mousePressed(MouseEvent e) {
-            prevMouseX = e.getX();
-            prevMouseY = e.getY();
-        }
-        @Override
-        public void mouseReleased(MouseEvent e) {}
-        @Override
-        public void mouseDragged(MouseEvent e) {
-            int dx = e.getX() - prevMouseX;
-            int dy = e.getY() - prevMouseY;
-
-            offsetX += dx;
-            offsetY += dy;
-
-            repaint();
-
-            prevMouseX = e.getX();
-            prevMouseY = e.getY();
-        }
-        @Override
-        public void mouseMoved(MouseEvent e) {}
-    }
-
     private void zoomIn() {
-        zoomFactor += 0.1;
+        mapPanel.zoomFactor += 0.1;
     }
 
     private void zoomOut() {
-        if (zoomFactor > 0.1) {
-            zoomFactor -= 0.1;
+        if (mapPanel.zoomFactor > 0.1) {
+            mapPanel.zoomFactor -= 0.1;
         }
-    }
-
-    private Map<String, Color> createLineColorMap() {
-        Map<String, Color> lineColorMap = new HashMap<>();
-        lineColorMap.put("3", Color.GREEN);
-        lineColorMap.put("4", Color.YELLOW);
-        lineColorMap.put("5", new Color(255, 127, 0));
-        lineColorMap.put("6", new Color(139, 69, 19));
-        lineColorMap.put("7", Color.MAGENTA);
-        lineColorMap.put("8", Color.PINK);
-        lineColorMap.put("9", new Color(148, 0, 211));
-        lineColorMap.put("10", new Color(0, 255, 255));
-        lineColorMap.put("11", new Color(255, 0, 255));
-        lineColorMap.put("12", new Color(0, 100, 0));
-        lineColorMap.put("13", new Color(210, 105, 30));
-        lineColorMap.put("3B", Color.CYAN);
-        lineColorMap.put("7B", Color.LIGHT_GRAY);
-        lineColorMap.put("14", Color.RED);
-        return lineColorMap;
     }
 
     private void filterGraphData(String lineName, Network network) {
@@ -261,11 +115,129 @@ for (Map.Entry<String, Color> entry : lineColorMap.entrySet()) {
     }
     
     public void showMap(Network network) {
-        setNetwork(network);
+        createInputPanel(network);
+        mapPanel.setNetwork(network);
     }
 
-    public void setNetwork(Network network) {
-        this.network = network;
+    public void createInputPanel(Network network) {
+        JPanel inputPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = GridBagConstraints.RELATIVE;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 10, 10, 10);
+        inputPanel.setBackground(Color.lightGray);
+        inputPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        // ComboBox pour le départ
+        departureField = new JComboBox<>(new DefaultComboBoxModel<>(network.getAllStationNames().toArray(new String[0])));
+        departureField.setEditable(true);
+    
+        // ComboBox pour l'arrivée
+        arrivalField = new JComboBox<>(new DefaultComboBoxModel<>(network.getAllStationNames().toArray(new String[0])));
+        arrivalField.setEditable(true);
+        JLabel departureLabel = new JLabel("Departure:");
+        JLabel arrivalLabel = new JLabel("Arrival:");
+        JButton findPathButton = new JButton("Find Path");
+        findPathButton.setBackground(Color.blue);
+        findPathButton.setForeground(Color.white);
+        refreshButton.setBackground(Color.green);
+        refreshButton.setForeground(Color.white);
+        // Ajout de la JTextArea non éditable à la fin du inputPanel
+        textArea = new JTextArea(1, 4);
+        textArea.setFocusable(false);
+        pathResult = new JTextArea(2, 4);
+        pathResult.setFocusable(false);
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        JScrollPane scrollPaneResult = new JScrollPane(pathResult);
+
+        inputPanel.add(departureLabel, gbc);
+        inputPanel.add(departureField, gbc);
+        inputPanel.add(arrivalLabel, gbc);
+        inputPanel.add(arrivalField, gbc);
+        inputPanel.add(findPathButton, gbc);
+        inputPanel.add(refreshButton, gbc);
+        inputPanel.add(scrollPane, gbc);
+        inputPanel.add(scrollPaneResult, gbc);
+    
+
+        // Ajout de la JCheckBox à côté du bouton "Find Path"
+        JCheckBox checkBox = new JCheckBox("Walk");
+        checkBox.setSelected(true); // Par défaut, la case est cochée
+        checkBox.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                walk = checkBox.isSelected();
+            }
+        });
+        gbc.gridwidth = GridBagConstraints.REMAINDER;
+        inputPanel.add(checkBox, gbc);
+        gbc.gridwidth = 1; // Réinitialisation de la largeur de la cellule
+    
+        // Ajout du bouton "Find Path"
+        gbc.weightx = 0.5;
+        inputPanel.add(findPathButton, gbc);
+        gbc.weightx = 0.0; // Réinitialisation du poids
+        
+        findPathButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                computepath(network);
+            }
+        });
+    
+        actionRefreshButton(network);
+        add(inputPanel);
+    }
+    public void computepath(Network network) {
+        String departure = (String) departureField.getSelectedItem();
+        String arrival = (String) arrivalField.getSelectedItem();
+
+        Stop s1 = network.findStopByName(departure);
+        Stop s2 = network.findStopByName(arrival);
+
+        if (s1 == null || s2 == null) {
+            return;
+        }
+
+        LocalTime departureTime = LocalTime.now();
+        List<Link> shortestPath = network.dijkstra_time(s1, s2, departureTime);
+        //Si walk= true alors on laisse l'option de marcher à pied sinon non
+        boolean walk = true;
+        WalkPath.evaluateWalkingOptions(shortestPath, departureTime,walk);
+        double totalTime1 = 0;
+        for (Link link : shortestPath) {
+            totalTime1 += link.getTime();
+        }
+        //Transformation du temps de trajet en long
+        long tot = (long) totalTime1;
+        String arrivalText = "Heure d'arrivée: " + departureTime.plusSeconds(tot).toString();
+        textArea.setText(arrivalText);
+        // Créer une chaîne pour stocker le résultat
+        StringBuilder resultBuilder = new StringBuilder("pathResult: ");
+
+        // Parcourir les liens et ajouter les noms des arrêts de destination à la chaîne de résultat avec des flèches entre eux
+        for (Link link : shortestPath) {
+            resultBuilder.append(link.getDestination().getStopName())
+                        .append(" -> ");
+        }
+
+        // Supprimer la dernière flèche inutile
+        resultBuilder.delete(resultBuilder.length() - 4, resultBuilder.length());
+
+        // Ajouter la chaîne de résultat à votre JTextArea
+        pathResult.setText(resultBuilder.toString());
+        network.restoreOriginalLinks();
+        network.saveOriginalLinks();
+        network.setLinks(shortestPath);
         repaint();
+    }
+    private void actionRefreshButton(Network network) {
+        this.refreshButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                departureField.setSelectedIndex(0);
+                arrivalField.setSelectedIndex(0);
+            }
+        });
     }
 }

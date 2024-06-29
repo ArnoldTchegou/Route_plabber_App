@@ -26,7 +26,6 @@ public final class ScheduleFormat {
      * @param representation the representation
      * @return the sequence of branching */
     public static List<Integer> getTripSequence(String representation) {
-        // TODO Read a trip sequence from a string
 
         throw new RuntimeException("Not implemented yet");
     }

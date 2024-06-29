@@ -22,7 +22,6 @@ public final class TraceEntry {
         this.lname = lname;
     }
 
-    // FIXME list of lists are bad practice in direct access...
     /** @return the list of paths */
     public List<List<StopEntry>> getPaths() {
         return paths;

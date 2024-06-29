@@ -12,18 +12,19 @@ Ce projet utilise [maven](https://maven.apache.org/) de Apache pour la gestion d
 Afin de compiler et lancer les tests, éxecutez simplement
 ```
 mvn verify
-puis
-mvn compile assembly:single
 ```
 
 Dans sa version initiale, le programme fournit est un simple code qui se lance en terminal ou en application graphique.
 
 Une fois le programme compilé, vous trouverez un jar executable dans le dossier target. Au nom de jar près (version changeante), vous pourrez l'exécuter avec:
 ```
-java -jar project-2024.1.0.0-SNAPSHOT.jar --info
+java -jar project-2024.1.0.0-SNAPSHOT-jar-with-dependencies
 ```
-
 L'option de lancement `--info` causera l'affichage dans la console d'informations de l'application.
 
-L'option de lancement `--gui` causera l'ouverture d'une fenêtre affichant le logo de l'Université de Paris.
+L'option de lancement `--term` causera le lancement de lapplication dans le terminal.
+
+L'option de lancement `--gui` causera le lancement de l'interface graphique.
+
+L'option de lancement `--map` causera l'affichage du réseau de métro parisien, il sera posssible de cliquer sur les arrets pour obtenir les infos des stations.
 

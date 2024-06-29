@@ -3,8 +3,14 @@ package fr.u_paris.gla.project.App_Ccontroller;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import fr.u_paris.gla.project.Lecture_Reseau.Line;
 import fr.u_paris.gla.project.Lecture_Reseau.Link;
@@ -50,6 +56,13 @@ public class Controller {
 
     public void setController_Map(MetroMapUI controller_Map) {
         this.controller_Map= controller_Map;
+    }
+//constructeur utilisé pour les tests
+    public Controller(){
+        this.controller_network = new Network();
+        CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
+        updateTerminusInfo("horaire.csv",controller_network);
+        updateLinkPassages("horaire.csv",controller_network);
     }
 
     public Controller(Network n, UI_Terminale t){
@@ -152,17 +165,150 @@ public class Controller {
         }
         //Final_Network.printAdjacencyList();
     }
+
+    //Associe aux lignes leurs terminus
+    public static void updateTerminusInfo(String filename, Network network) {
+        Map<String, Set<String>> lineToTermini = new HashMap<>();
+        //Extraction des infos
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(";");
+                if (parts.length >= 4) {
+                    String lineName = parts[0].trim().replace("\"", "");
+                    String terminus = parts[2].trim().replace("\"", "");
+    
+                    // Stocker les terminus pour chaque ligne
+                    lineToTermini.computeIfAbsent(lineName, k -> new HashSet<>()).add(terminus);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // Mettre à jour les informations des terminus pour chaque ligne
+        for (Line line : network.getLines()) {
+            if (lineToTermini.containsKey(line.getLineName())) {
+                List<String> termini = new ArrayList<>(lineToTermini.get(line.getLineName()));
+                if (termini.size() > 0) {
+                    line.setTerminus1(termini.get(0));
+                    if (termini.size() > 1) {
+                        line.setTerminus2(termini.get(1));
+                    }
+                    // Gérer spécifiquement les lignes 7 et 13 pour le troisième terminus
+                    if ((line.getLineName().equals("7") || line.getLineName().equals("13")) && termini.size() > 2) {
+                        line.setTerminus3(termini.get(2));
+                    }
+                }
+            }
+        }
+    }
+
+    //Fonction très moche à cause des spécificités
+    public static void updateLinkPassages(String filename, Network network) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(";");
+                if (parts.length >= 4) {
+                    String lineName = parts[0].trim().replace("\"", "");
+                    int bifur = Integer.parseInt(parts[1].trim().replace("\"", "").replace("[", "").replace("]", ""));
+                    String stationStart = parts[2].trim().replace("\"", "");
+                    LocalTime departureTime = LocalTime.parse(parts[3].trim().replace("\"", ""), formatter);
+                    String stationArrive="";
+                    String previousstation="";
+                    // Trouver la ligne correspondante
+                    for(Line l: network.getLines()){
+                        if(l.getLineName().equals(lineName)){
+                            // On ajoute les horaires a tous les liens de cette ligne tant qu'on arrive pas au terminus 
+                            while(!stationArrive.equals(l.getTerminus1()) && !stationArrive.equals(l.getTerminus2()) && !stationArrive.equals(l.getTerminus3())){
+                                // Trouver le lien correspondant dans le réseau et mettre à jour H_passage
+                                for (Link link : network.getLinks()){
+                                    //Traitement des cas spécifiques
+                                    if(l.getLineName().equals("13") && bifur==1 && stationStart.equals("La Fourche")){
+                                        if(!link.getDestinationName().equals("Guy Môquet")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("13") && bifur==2 && stationStart.equals("La Fourche")){
+                                        if(!link.getDestinationName().equals("Brochant")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("13") && bifur==0 && stationStart.equals("La Fourche")){
+                                        if(!link.getDestinationName().equals("Place de Clichy")){
+                                            continue;
+                                        }
+                                    }
+
+                                    if(l.getLineName().equals("7") && bifur==1 && stationStart.equals("Maison Blanche")){
+                                        if(!link.getDestinationName().equals("Porte d'Italie")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("7") && bifur==2 && stationStart.equals("Maison Blanche")){
+                                        if(!link.getDestinationName().equals("Le Kremlin-Bicêtre")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("7") && bifur==0 && stationStart.equals("Maison Blanche")){
+                                        if(!link.getDestinationName().equals("Tolbiac")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("7B") && stationStart.equals("Botzaris") && previousstation.equals("Danube")){
+                                        if(!link.getDestinationName().equals("Buttes Chaumont")){
+                                            continue;
+                                        }
+                                    }
+                                    if(l.getLineName().equals("10") && stationStart.equals("Boulogne Jean Jaurès") && previousstation.equals("Porte d'Auteuil")){
+                                        if(!link.getDestinationName().equals("Boulogne Pont de Saint-Cloud")){
+                                            continue;
+                                        }
+                                    }
+
+
+                                    if(link.getLineName().equals(lineName) && link.getSourceName().equals(stationStart)&& !link.getDestinationName().equals(previousstation)){
+                                        link.getHPassage().add(departureTime);
+                                        stationArrive=link.getDestinationName();
+                                        System.out.println("\nAvec la ligne " + l.getLineName()+ " De "+stationStart+ " à "+stationArrive +" aux horaires "+link.getHPassage());
+                                        //On verfie qu'on ne repart pas dans le même sens
+                                        previousstation=stationStart;
+                                        //On met à jour la station de départ
+                                        stationStart=stationArrive;
+                                        //On met à jour l'heure de départ de la nouvelle station
+                                        departureTime=departureTime.plusSeconds(link.getTime());
+                                        break;
+                                    }
+                                }  
+                            }
+                            break;      
+                        }
+                    }      
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }  
+
     public void LaunchApp_GUI(){
         CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
+        updateTerminusInfo("horaire.csv",controller_network);
+        updateLinkPassages("horaire.csv",controller_network);
         this.controller_GUI.createInputPanel(this.controller_network);
     }
 
     public void LaunchApp_Terminale(){
         CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
+        updateTerminusInfo("horaire.csv",controller_network);
+        updateLinkPassages("horaire.csv",controller_network);
         this.controller_terminal.showTerminale(this.controller_network);
     }
     public void LaunchApp_Map(){
         CreateFinal_NetworkFromCSV("test.csv", this.controller_network);
+        updateTerminusInfo("horaire.csv",controller_network);
+        updateLinkPassages("horaire.csv",controller_network);
         this.controller_Map.showMap(this.controller_network);
     }
 

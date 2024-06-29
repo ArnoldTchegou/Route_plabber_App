@@ -2,10 +2,10 @@ package fr.u_paris.gla.project;
 
 import java.io.IOException;
 
-import fr.App_Ccontroller.Controller;
-import fr.Lecture_Reseau.Network;
-import fr.User_interface.UI_Terminale;
-import fr.User_interface.UI_graphique;
+import fr.u_paris.gla.project.App_Ccontroller.Controller;
+import fr.u_paris.gla.project.Lecture_Reseau.Network;
+import fr.u_paris.gla.project.User_interface.UI_Terminale;
+import fr.u_paris.gla.project.User_interface.UI_graphique;
 import fr.u_paris.gla.project.idfm.IDFMNetworkExtractor;
 
 /** Simple application model.
